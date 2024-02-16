@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-contract KycSmartContract{
+contract MyNewKyc{
     address admin;
     Customer[] customers_list; //To view entire Customers list
     constructor(){
@@ -28,7 +28,7 @@ contract KycSmartContract{
     mapping(address => Organization ) public organization_list; // to list all organizations under admin;
     mapping(address => mapping(address => bool) ) public registered_customer; //To check whether a customer is present under a particular organization or not
     mapping(address => Customer[]) public Customers_in_Organization; // to view customers details given the organization address
-    mapping(address => bool) public Customer_exists; // To check whether a customer exists with that address or not
+    mapping(address => bool) public Customer_exists;
 
     //Modifier written for admin
     modifier onlyAdmin{
@@ -62,6 +62,11 @@ contract KycSmartContract{
         require(!Customer_exists[_id],"Customer already exists");
         _;
     }
+    modifier isCustomerFromSameOrganization(address _id){
+        require(registered_customer[msg.sender][_id],"He is not a customer of our organisation");
+        _;
+    }
+
     //Functions written for organization
     function addOrganization(address _id,string memory _name) public onlyAdmin newOrganization(_id) {
         Organization memory org;
@@ -109,32 +114,29 @@ contract KycSmartContract{
         return Customers_in_Organization[msg.sender];
     }
 
-    function deleteCustomer(address customerId) public ValidCustomer(customerId) onlyOrganization{
+    function deleteCustomer(address customerId) public ValidCustomer(customerId) onlyOrganization isCustomerFromSameOrganization(customerId){
         for (uint i = 0; i < customers_list.length; i++) {
             if (customers_list[i].id == customerId) {
                 customers_list[i] = customers_list[customers_list.length - 1];
                 
                 customers_list.pop();
-                delete Customer_exists[customerId] ;
                 return; 
             }
         }
-      
+        
+        delete Customer_exists[customerId] ;
+        delete customers_details[customerId];
+        Customer[] storage temp = Customers_in_Organization[msg.sender];
+        for (uint i = 0; i < temp.length; i++) {
+            if (temp[i].id == customerId) {
+                temp[i] = temp[temp.length - 1];
+                temp.pop();
+                return;
+            }
+        }
     }
 
-    function kycCheck(
-        string memory _name,
-        address _id,
-        string memory _dob,
-        string memory _gender,
-        string memory _nationality,
-        string memory _phone,
-        string memory _aadhar_no,
-        string memory _pan_no,
-        string memory _photo_hash,
-        string memory _residential_address,
-        uint _income
-    ) public view returns (string memory){
+    function kycCheck (string memory _name,address _id,string memory _dob,string memory _gender,string memory _nationality,string memory _phone,string memory _aadhar_no,string memory _pan_no,string memory _photo_hash,string memory _residential_address,uint _income) public view onlyOrganization returns (string memory) {
         Customer memory customer = customers_details[_id];
         
         require(keccak256(abi.encodePacked(customer.name)) == keccak256(abi.encodePacked(_name)), "Name does not match");
@@ -149,7 +151,5 @@ contract KycSmartContract{
         require(keccak256(abi.encodePacked(customer.residential_address)) == keccak256(abi.encodePacked(_residential_address)), "Residential address does not match");
         require(customer.income == _income, "Income does not match");
         return "He is our Customer";
-    }
-
-    
+    }   
 }
