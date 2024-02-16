@@ -1,104 +1,155 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity ^0.8.0;
 contract KycSmartContract{
     address admin;
-    Organization[] registered_organizations;
-    struct Customer{
-        address id;
-        string name;
-        uint aadhaar_no;
-        Dob dob;
-        string gender;
-        uint phone_no;
-        string residential_address;
-        string nationality;
-        string pan_no;
-        uint income;
-        string photo_hash;
-        address customer_organizations;
-        bool kyc_status;
-    }
-    struct Dob{
-        uint day;
-        uint month;
-        uint year;
-    }
-    struct Organization{
-        string name;
-        address id;
-        Customer[] customersList;
-    }
+    Customer[] customers_list; //To view entire Customers list
     constructor(){
-        admin=msg.sender;
+        admin = msg.sender;
     }
-    /*struct keyRequests{
-        uint cnt;
-        address organization;
-        address customeraddress;
-    }*/
-    //mappings
-    mapping (address => Customer) customersList;
-    mapping (address => Organization) organizationsList;
-    
-    //modifiers
-    modifier isAdmin{
-        require(msg.sender == admin,"Only Admin have the Access");
+    struct Organization {
+        string name;
+        address id;
+    }
+    struct Customer {
+        string name;
+        address id;
+        string dob;
+        string gender;
+        string nationality;
+        string phone;
+        string aadhar_no;
+        string pan_no;
+        string photo_hash;
+        string residential_address;
+        uint income;
+    }
+    mapping(address => bool) public registered_organization; // To check whether an organization is present or not in the registered organizations
+    mapping(address => Customer) public customers_details; // To view customer_details
+    mapping(address => Organization ) public organization_list; // to list all organizations under admin;
+    mapping(address => mapping(address => bool) ) public registered_customer; //To check whether a customer is present under a particular organization or not
+    mapping(address => Customer[]) public Customers_in_Organization; // to view customers details given the organization address
+    mapping(address => bool) public Customer_exists;
+
+    //Modifier written for admin
+    modifier onlyAdmin{
+        require(msg.sender == admin,"Only Admins have the Access");
         _;
-    }
-    modifier isOrgRegistered(address _org_address){
-        for(uint i=0;i<registered_organizations.length;i++){
-            require(registered_organizations[i].id != _org_address,"Already registered");
-        }
-        _;
-    }
-   modifier isValidOrganization(address _org_id){
-        for(uint i=0;i<registered_organizations.length;i++){
-            if(registered_organizations[i].id == _org_id){
-                _;
-                return;
-            }
-        }
-        revert("Organization doesn't exist");
-   }
-    function addOrganization(string memory _name,address _id) public isAdmin isOrgRegistered(_id) {
-        Organization memory org;
-        org.id=_id;
-        org.name=_name;
-        org.customersList ;
-        registered_organizations.push(org);
-        organizationsList[_id]=org;
-    }
-    function delOrganisation(address _id) public isAdmin  returns(string memory) {
-         for(uint i=0;i<registered_organizations.length;i++){
-            if(registered_organizations[i].id == _id){
-                delete registered_organizations[i];
-                delete organizationsList[_id];
-                return "Organization deleted successfully";
-            }
-        }
-        revert("Organization doesn't exist");
-    }
-    function viewOrganization(address _id) public view isValidOrganization(_id) returns(Organization memory){
-        return organizationsList[_id];
-    }
-    function addCustomer(address _id,string memory _name,uint _aadhaar_no,Dob memory _dob,string memory _gender,uint _phone_no,string memory _residential_address,string memory _nationality,string memory _pan_no,uint _income,string memory _photo_hash,address[] memory _customer_organizations) public {
-        Customer memory customer;
-        customer.id=_id;
-        customer.name=_name;
-        customer.aadhaar_no=_aadhaar_no;
-        customer.dob=_dob;
-        customer.gender=_gender;
-        customer.phone_no=_phone_no;
-        customer.residential_address=_residential_address;
-        customer.nationality=_nationality;
-        customer.pan_no=_pan_no;
-        customer.income=_income;
-        customer.customer_organizations = msg.sender;
-        customer.kyc_status=true;
-        customersList[msg.sender]=customer;
-    }
-    function delCustomer(address _id) public {
-        delete  customer_organizations[msg.sender];
     }
 
+
+    //Modifiers written for organization
+    
+    modifier newOrganization(address _id){
+        require(!registered_organization[_id],"Organization already registered");
+        _;
+    }
+    modifier isOrganizationPresent(address _id){
+        require(registered_organization[_id],"Organization does not exist with the given address");
+        _;
+    }
+
+    //Modifiers for Customer
+    modifier onlyOrganization() {
+        require(registered_organization[msg.sender], "Only organization can perform this operation");
+        _;
+    }
+    modifier ValidCustomer(address _id){
+        require(Customer_exists[_id],"Customer doesnt exists");
+        _;
+    }
+
+    modifier DoesCustomerExists(address _id){
+        require(!Customer_exists[_id],"Customer already exists");
+        _;
+    }
+    //Functions written for organization
+    function addOrganization(address _id,string memory _name) public onlyAdmin newOrganization(_id) {
+        Organization memory org;
+        org.name = _name;
+        org.id = _id;
+        registered_organization[_id] = true;
+        organization_list[_id] = org;
+    }
+    
+    function delOrganization(address _id) public onlyAdmin isOrganizationPresent(_id){
+        registered_organization[_id] = false;
+        delete organization_list[_id];
+        delete registered_organization[_id];
+    }
+    function viewOrganization(address _id) public view isOrganizationPresent(_id) returns(Organization memory){
+        return organization_list[_id];
+    }
+
+    //functions written for customer
+    function addCustomer(string memory _name,address _id,string memory _dob,string memory _gender,string memory _nationality,string memory _phone,string memory _aadhar_no, string memory _pan_no,string memory _photo_hash,string memory _residential_address,uint _income) public  onlyOrganization DoesCustomerExists(_id){
+        Customer memory obj;
+        obj.name = _name;
+        obj.id = _id;
+        obj.dob = _dob; 
+        obj.gender = _gender;
+        obj.nationality = _nationality;
+        obj.phone = _phone;
+        obj.aadhar_no = _aadhar_no;
+        obj.pan_no = _pan_no;
+        obj.photo_hash = _photo_hash;
+        obj.residential_address = _residential_address;
+        obj.income = _income;
+        registered_customer[msg.sender][_id] = true;
+        customers_details[_id] = obj;
+        customers_list.push(obj);
+        Customers_in_Organization[msg.sender].push(obj);
+        Customer_exists[_id] = true;
+
+    }
+
+    function viewEntireCustomers() public view onlyAdmin returns(Customer[] memory){
+        return customers_list;
+    }
+    function viewOrganizationCustomers() public view onlyOrganization returns (Customer[] memory){
+        return Customers_in_Organization[msg.sender];
+    }
+
+    function deleteCustomer(address customerId) public ValidCustomer(customerId) onlyOrganization{
+        for (uint i = 0; i < customers_list.length; i++) {
+            if (customers_list[i].id == customerId) {
+                customers_list[i] = customers_list[customers_list.length - 1];
+                
+                customers_list.pop();
+                delete Customer_exists[customerId] ;
+                return; 
+            }
+        }
+      
+    }
+
+    function kycCheck(
+        string memory _name,
+        address _id,
+        string memory _dob,
+        string memory _gender,
+        string memory _nationality,
+        string memory _phone,
+        string memory _aadhar_no,
+        string memory _pan_no,
+        string memory _photo_hash,
+        string memory _residential_address,
+        uint _income
+    ) public view returns (string memory){
+        Customer memory customer = customers_details[_id];
+        
+        require(keccak256(abi.encodePacked(customer.name)) == keccak256(abi.encodePacked(_name)), "Name does not match");
+        require(customer.id == _id, "Address does not match");
+        require(keccak256(abi.encodePacked(customer.dob)) == keccak256(abi.encodePacked(_dob)), "Date of Birth does not match");
+        require(keccak256(abi.encodePacked(customer.gender)) == keccak256(abi.encodePacked(_gender)), "Gender does not match");
+        require(keccak256(abi.encodePacked(customer.nationality)) == keccak256(abi.encodePacked(_nationality)), "Nationality does not match");
+        require(keccak256(abi.encodePacked(customer.phone)) == keccak256(abi.encodePacked(_phone)), "Phone number does not match");
+        require(keccak256(abi.encodePacked(customer.aadhar_no)) == keccak256(abi.encodePacked(_aadhar_no)), "Aadhar number does not match");
+        require(keccak256(abi.encodePacked(customer.pan_no)) == keccak256(abi.encodePacked(_pan_no)), "PAN number does not match");
+        require(keccak256(abi.encodePacked(customer.photo_hash)) == keccak256(abi.encodePacked(_photo_hash)), "Photo hash does not match");
+        require(keccak256(abi.encodePacked(customer.residential_address)) == keccak256(abi.encodePacked(_residential_address)), "Residential address does not match");
+        require(customer.income == _income, "Income does not match");
+        return "He is our Customer";
+    }
+
+    
 }
