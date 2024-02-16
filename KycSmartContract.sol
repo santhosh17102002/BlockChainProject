@@ -15,8 +15,8 @@ contract KycSmartContract{
         string pan_no;
         uint income;
         string photo_hash;
-        address[] customer_organizations;
-        bool key_status;
+        address customer_organizations;
+        bool kyc_status;
     }
     struct Dob{
         uint day;
@@ -26,17 +26,18 @@ contract KycSmartContract{
     struct Organization{
         string name;
         address id;
+        Customer[] customersList;
     }
     constructor(){
         admin=msg.sender;
     }
-    struct keyRequests{
+    /*struct keyRequests{
         uint cnt;
         address organization;
-        address customer;
-    }
+        address customeraddress;
+    }*/
     //mappings
-    //mapping (address => Customer) customers;
+    mapping (address => Customer) customersList;
     mapping (address => Organization) organizationsList;
     
     //modifiers
@@ -44,7 +45,7 @@ contract KycSmartContract{
         require(msg.sender == admin,"Only Admin have the Access");
         _;
     }
-    modifier isOrgExists(address _org_address){
+    modifier isOrgRegistered(address _org_address){
         for(uint i=0;i<registered_organizations.length;i++){
             require(registered_organizations[i].id != _org_address,"Already registered");
         }
@@ -57,24 +58,47 @@ contract KycSmartContract{
                 return;
             }
         }
-        require(false,"Organization doesn't exist");
+        revert("Organization doesn't exist");
    }
-    function addOrganization(string memory _name,address _id) public isAdmin isOrgExists(_id) {
+    function addOrganization(string memory _name,address _id) public isAdmin isOrgRegistered(_id) {
         Organization memory org;
         org.id=_id;
         org.name=_name;
+        org.customersList ;
         registered_organizations.push(org);
+        organizationsList[_id]=org;
     }
     function delOrganisation(address _id) public isAdmin  returns(string memory) {
          for(uint i=0;i<registered_organizations.length;i++){
             if(registered_organizations[i].id == _id){
                 delete registered_organizations[i];
+                delete organizationsList[_id];
                 return "Organization deleted successfully";
             }
         }
-        return "Organization doesn't exist";
+        revert("Organization doesn't exist");
     }
-    function viewOrganization(address _id) public view isValidOrganization(_id) returns(string memory){
-        return string(abi.encodePacked("Organization name : ", organizationsList[_id].name, "\n", "Organization Id : ", _id));
+    function viewOrganization(address _id) public view isValidOrganization(_id) returns(Organization memory){
+        return organizationsList[_id];
     }
+    function addCustomer(address _id,string memory _name,uint _aadhaar_no,Dob memory _dob,string memory _gender,uint _phone_no,string memory _residential_address,string memory _nationality,string memory _pan_no,uint _income,string memory _photo_hash,address[] memory _customer_organizations) public {
+        Customer memory customer;
+        customer.id=_id;
+        customer.name=_name;
+        customer.aadhaar_no=_aadhaar_no;
+        customer.dob=_dob;
+        customer.gender=_gender;
+        customer.phone_no=_phone_no;
+        customer.residential_address=_residential_address;
+        customer.nationality=_nationality;
+        customer.pan_no=_pan_no;
+        customer.income=_income;
+        customer.customer_organizations = msg.sender;
+        customer.kyc_status=true;
+        customersList[msg.sender]=customer;
+    }
+    function delCustomer(address _id) public {
+        delete  customer_organizations[msg.sender];
+    }
+
 }
