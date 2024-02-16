@@ -28,7 +28,7 @@ contract KycSmartContract{
     mapping(address => Organization ) public organization_list; // to list all organizations under admin;
     mapping(address => mapping(address => bool) ) public registered_customer; //To check whether a customer is present under a particular organization or not
     mapping(address => Customer[]) public Customers_in_Organization; // to view customers details given the organization address
-    mapping(address => bool) public Customer_exists;
+    mapping(address => bool) public Customer_exists; // To check whether a customer exists with that address or not
 
     //Modifier written for admin
     modifier onlyAdmin{
